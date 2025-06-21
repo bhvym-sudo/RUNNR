@@ -22,14 +22,16 @@ import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.network.searchJioSaavn
 import com.bhavyam.runnr.player.PlayerManager
+import com.bhavyam.runnr.PlayerStateListener
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class SearchFragment : Fragment() {
+class SearchFragment : Fragment(), PlayerStateListener {
 
     private lateinit var searchAdapter: SearchAdapter
     private var searchJob: Job? = null
+    private var playPause: ImageView? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -37,6 +39,8 @@ class SearchFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_search, container, false)
         PlayerManager.init(requireContext())
+        PlayerManager.addListener(this)
+
         val searchBox = view.findViewById<EditText>(R.id.searchBox)
         val recyclerView = view.findViewById<RecyclerView>(R.id.searchResults)
 
@@ -57,7 +61,7 @@ class SearchFragment : Fragment() {
                             val results = searchJioSaavn(requireContext(), text)
                             searchAdapter.updateList(results)
                         } catch (e: Exception) {
-                            Toast.makeText(requireContext(), "Network error: Check your connection", Toast.LENGTH_SHORT).show()
+                            Log.e("PlayerManager", "Stream failed", e)
                         }
                     }
                 } else {
@@ -75,6 +79,7 @@ class SearchFragment : Fragment() {
                 val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
                 Log.d("PlayerManager", "Stream URL: $streamUrl")
                 if (!streamUrl.isNullOrEmpty()) {
+                    PlayerManager.setCurrentSong(song)
                     PlayerManager.playStream(streamUrl)
                     updatePlayerBarUI(song)
                 } else {
@@ -100,7 +105,7 @@ class SearchFragment : Fragment() {
         val title = playerBar.findViewById<TextView>(R.id.playerTitle)
         val subtitle = playerBar.findViewById<TextView>(R.id.playerSubtitle)
         val image = playerBar.findViewById<ImageView>(R.id.playerImage)
-        val playPause = playerBar.findViewById<ImageView>(R.id.playPauseBtn)
+        playPause = playerBar.findViewById(R.id.playPauseBtn)
         val colorLayer = playerBar.findViewById<View>(R.id.colorLayer)
         val nightOverlay = playerBar.findViewById<View>(R.id.nightOverlay)
 
@@ -131,11 +136,26 @@ class SearchFragment : Fragment() {
             val player = PlayerManager.getPlayer()
             if (player?.isPlaying == true) {
                 PlayerManager.pause()
-                playPause.setImageResource(R.drawable.ic_play)
             } else {
                 PlayerManager.resume()
-                playPause.setImageResource(R.drawable.ic_pause)
             }
         }
+
+        playerBar.setOnClickListener {
+            val fragment = FullPlayerFragment()
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, fragment)
+                .addToBackStack(null)
+                .commit()
+        }
+    }
+
+    override fun onPlayerStateChanged(isPlaying: Boolean) {
+        playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        PlayerManager.removeListener(this)
     }
 }
