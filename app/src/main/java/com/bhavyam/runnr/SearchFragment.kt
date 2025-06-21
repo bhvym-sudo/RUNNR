@@ -61,7 +61,8 @@ class SearchFragment : Fragment(), PlayerStateListener {
                             val results = searchJioSaavn(requireContext(), text)
                             searchAdapter.updateList(results)
                         } catch (e: Exception) {
-                            Log.e("PlayerManager", "Stream failed", e)
+                            Log.e("SearchError", "Error fetching search results", e)
+                            Toast.makeText(requireContext(), "Network error", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
@@ -77,7 +78,6 @@ class SearchFragment : Fragment(), PlayerStateListener {
         lifecycleScope.launch {
             try {
                 val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
-                Log.d("PlayerManager", "Stream URL: $streamUrl")
                 if (!streamUrl.isNullOrEmpty()) {
                     PlayerManager.setCurrentSong(song)
                     PlayerManager.playStream(streamUrl)
@@ -86,7 +86,7 @@ class SearchFragment : Fragment(), PlayerStateListener {
                     Toast.makeText(requireContext(), "Failed to load stream", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Playback error. Check connection.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Playback error", Toast.LENGTH_SHORT).show()
                 Log.e("PlayerManager", "Stream failed", e)
             }
         }
@@ -95,10 +95,7 @@ class SearchFragment : Fragment(), PlayerStateListener {
     private fun updatePlayerBarUI(song: SongItem) {
         val activity = requireActivity()
         val playerBar = activity.findViewById<View>(R.id.playerBar)
-            ?: run {
-                Log.e("PlayerBar", "playerBar include not found")
-                return
-            }
+            ?: return
 
         val cardView = playerBar.findViewById<View>(R.id.playerBarCard)
         playerBar.visibility = View.VISIBLE
@@ -151,8 +148,11 @@ class SearchFragment : Fragment(), PlayerStateListener {
     }
 
     override fun onPlayerStateChanged(isPlaying: Boolean) {
-        playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+        val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
+        playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

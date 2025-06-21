@@ -16,6 +16,7 @@ import com.bumptech.glide.Glide
 import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.player.PlayerManager
+import com.bhavyam.runnr.PlayerStateListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,7 +25,7 @@ import android.os.Build
 import android.provider.MediaStore
 import java.net.URL
 
-class FullPlayerFragment : Fragment() {
+class FullPlayerFragment : Fragment(), PlayerStateListener {
 
     private lateinit var image: ImageView
     private lateinit var title: TextView
@@ -70,6 +71,8 @@ class FullPlayerFragment : Fragment() {
             downloadCurrentSong()
         }
 
+        PlayerManager.addListener(this)
+
         title.text = song.title
         subtitle.text = song.subtitle
         Glide.with(requireContext()).load(song.image).into(image)
@@ -84,10 +87,8 @@ class FullPlayerFragment : Fragment() {
         playPauseBtn.setOnClickListener {
             if (player.isPlaying) {
                 PlayerManager.pause()
-                playPauseBtn.setImageResource(R.drawable.ic_play)
             } else {
                 PlayerManager.resume()
-                playPauseBtn.setImageResource(R.drawable.ic_pause)
             }
         }
 
@@ -108,7 +109,22 @@ class FullPlayerFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         handler.removeCallbacks(updateRunnable)
+        PlayerManager.removeListener(this)
     }
+
+    override fun onPlayerStateChanged(isPlaying: Boolean) {
+        activity?.runOnUiThread {
+            playPauseBtn?.setImageResource(
+                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+            )
+            val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+            val playPause = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
+            playPause?.setImageResource(
+                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+            )
+        }
+    }
+
 
     private fun formatDuration(seconds: Int): String {
         val min = seconds / 60
