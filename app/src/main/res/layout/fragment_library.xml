@@ -1,13 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/libraryLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/Richblack"
-    android:gravity="center"
     android:padding="16dp">
-
 
     <TextView
         android:id="@+id/libraryTitle"
@@ -19,13 +17,46 @@
         android:textColor="@android:color/white"
         android:layout_marginBottom="8dp" />
 
-
     <TextView
         android:id="@+id/libraryMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Liked songs will appear here."
         android:textSize="14sp"
-        android:textColor="#AAAAAA" />
+        android:textColor="#AAAAAA"
+        android:layout_marginBottom="16dp" />
 
+    <LinearLayout
+        android:id="@+id/likedSongsSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/Richblack"
+        android:padding="12dp"
+        android:orientation="horizontal"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:src="@drawable/ic_heart_filled"
+            app:tint="@android:color/white" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Liked Songs"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/libraryRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone"
+        android:layout_marginTop="16dp" />
 </LinearLayout>

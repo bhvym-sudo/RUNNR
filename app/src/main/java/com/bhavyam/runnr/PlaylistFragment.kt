@@ -2,7 +2,9 @@ package com.bhavyam.runnr
 
 import android.os.Bundle
 import android.view.*
-import android.widget.*
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,42 +18,39 @@ import com.bhavyam.runnr.storage.LikedSongsManager
 import com.bhavyam.runnr.PlayerStateListener
 import kotlinx.coroutines.*
 
-class LibraryFragment : Fragment(), PlayerStateListener {
+class PlaylistFragment : Fragment(), PlayerStateListener {
 
-    private lateinit var likedSection: LinearLayout
+    private lateinit var playlistTitle: String
     private lateinit var recyclerView: RecyclerView
-    private lateinit var titleText: TextView
-    private lateinit var subtitleText: TextView
-    private lateinit var adapter: SearchAdapter
+    private lateinit var emptyText: TextView
     private var playPause: ImageView? = null
     private var likeBtn: ImageView? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        playlistTitle = arguments?.getString("playlistName") ?: "Liked Songs"
+    }
 
     @androidx.media3.common.util.UnstableApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val view = inflater.inflate(R.layout.fragment_library, container, false)
+        val view = inflater.inflate(R.layout.fragment_playlist, container, false)
 
-        likedSection = view.findViewById(R.id.likedSongsSection)
-        recyclerView = view.findViewById(R.id.libraryRecycler)
-        titleText = view.findViewById(R.id.libraryTitle)
-        subtitleText = view.findViewById(R.id.libraryMessage)
+        recyclerView = view.findViewById(R.id.playlistRecycler)
+        emptyText = view.findViewById(R.id.emptyMessage)
 
-        adapter = SearchAdapter { song -> playSong(song) }
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = adapter
-
-        likedSection.setOnClickListener {
-            val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
-            if (likedSongs.isEmpty()) {
-                subtitleText.text = "No liked songs yet."
-                recyclerView.visibility = View.GONE
-            } else {
-                titleText.text = "Liked Songs"
-                subtitleText.text = ""
-                adapter.updateList(likedSongs)
-                recyclerView.visibility = View.VISIBLE
+        val songs = LikedSongsManager.getLikedSongs(requireContext())
+        if (songs.isEmpty()) {
+            emptyText.visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+        } else {
+            emptyText.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+            recyclerView.layoutManager = LinearLayoutManager(requireContext())
+            recyclerView.adapter = SearchAdapter { song -> onSongClick(song) }.apply {
+                updateList(songs)
             }
         }
 
@@ -71,13 +70,15 @@ class LibraryFragment : Fragment(), PlayerStateListener {
     }
 
     @androidx.media3.common.util.UnstableApi
-    private fun playSong(song: SongItem) {
+    private fun onSongClick(song: SongItem) {
         CoroutineScope(Dispatchers.Main).launch {
             val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
             if (!streamUrl.isNullOrEmpty()) {
                 PlayerManager.setCurrentSong(song)
                 PlayerManager.playStream(requireContext(), streamUrl)
                 updatePlayerBarUI()
+            } else {
+                Toast.makeText(requireContext(), "Unable to stream song", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -127,7 +128,6 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         val colorLayer = playerBar.findViewById<View>(R.id.colorLayer)
         val nightOverlay = playerBar.findViewById<View>(R.id.nightOverlay)
 
-        playerBar.visibility = View.VISIBLE
         title?.text = currentSong.title
         subtitle?.text = currentSong.subtitle
 
@@ -149,11 +149,22 @@ class LibraryFragment : Fragment(), PlayerStateListener {
 
         colorLayer?.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.Richblack))
         nightOverlay?.alpha = 0.75f
+        playerBar.visibility = View.VISIBLE
     }
 
     override fun onPlayerStateChanged(isPlaying: Boolean) {
         val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
         val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
         playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+    }
+
+    companion object {
+        fun newInstance(playlistName: String): PlaylistFragment {
+            val fragment = PlaylistFragment()
+            val args = Bundle()
+            args.putString("playlistName", playlistName)
+            fragment.arguments = args
+            return fragment
+        }
     }
 }

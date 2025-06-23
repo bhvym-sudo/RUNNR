@@ -4,13 +4,8 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.Toast
+import android.view.*
+import android.widget.*
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -22,16 +17,16 @@ import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.network.searchJioSaavn
 import com.bhavyam.runnr.player.PlayerManager
+import com.bhavyam.runnr.storage.LikedSongsManager
 import com.bhavyam.runnr.PlayerStateListener
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 class SearchFragment : Fragment(), PlayerStateListener {
 
     private lateinit var searchAdapter: SearchAdapter
     private var searchJob: Job? = null
     private var playPause: ImageView? = null
+    private var likeBtn: ImageView? = null
 
     @androidx.media3.common.util.UnstableApi
     override fun onCreateView(
@@ -88,6 +83,7 @@ class SearchFragment : Fragment(), PlayerStateListener {
 
         return view
     }
+
     @androidx.media3.common.util.UnstableApi
     private fun onSongClick(song: SongItem) {
         lifecycleScope.launch {
@@ -109,18 +105,18 @@ class SearchFragment : Fragment(), PlayerStateListener {
 
     private fun updatePlayerBarUI(song: SongItem) {
         val activity = requireActivity()
-        val playerBar = activity.findViewById<View>(R.id.playerBar)
-            ?: return
+        val playerBar = activity.findViewById<View>(R.id.playerBar) ?: return
 
         val cardView = playerBar.findViewById<View>(R.id.playerBarCard)
-        playerBar.visibility = View.VISIBLE
         val title = playerBar.findViewById<TextView>(R.id.playerTitle)
         val subtitle = playerBar.findViewById<TextView>(R.id.playerSubtitle)
         val image = playerBar.findViewById<ImageView>(R.id.playerImage)
         playPause = playerBar.findViewById(R.id.playPauseBtn)
+        likeBtn = playerBar.findViewById(R.id.playerLikeBtn)
         val colorLayer = playerBar.findViewById<View>(R.id.colorLayer)
         val nightOverlay = playerBar.findViewById<View>(R.id.nightOverlay)
 
+        playerBar.visibility = View.VISIBLE
         title?.text = song.title
         subtitle?.text = song.subtitle
 
@@ -130,14 +126,13 @@ class SearchFragment : Fragment(), PlayerStateListener {
             .into(object : com.bumptech.glide.request.target.BitmapImageViewTarget(image) {
                 override fun setResource(resource: android.graphics.Bitmap?) {
                     super.setResource(resource)
-                    resource?.let { bitmap ->
-                        androidx.palette.graphics.Palette.from(bitmap).generate { palette ->
-                            val dominantColor = palette?.getDominantColor(
+                    resource?.let {
+                        androidx.palette.graphics.Palette.from(it).generate { palette ->
+                            val color = palette?.getDominantColor(
                                 ContextCompat.getColor(requireContext(), R.color.Richblack)
                             ) ?: ContextCompat.getColor(requireContext(), R.color.Richblack)
-
-                            colorLayer?.setBackgroundColor(dominantColor)
-                            nightOverlay?.alpha = 0.75f
+                            colorLayer.setBackgroundColor(color)
+                            nightOverlay.alpha = 0.75f
                         }
                     }
                 }
@@ -153,6 +148,17 @@ class SearchFragment : Fragment(), PlayerStateListener {
             }
         }
 
+        updateLikeIcon(song)
+        likeBtn?.setOnClickListener {
+            val liked = LikedSongsManager.isLiked(requireContext(), song)
+            if (liked) {
+                LikedSongsManager.removeSong(requireContext(), song)
+            } else {
+                LikedSongsManager.addSong(requireContext(), song)
+            }
+            updateLikeIcon(song)
+        }
+
         playerBar.setOnClickListener {
             val fragment = FullPlayerFragment()
             parentFragmentManager.beginTransaction()
@@ -162,12 +168,20 @@ class SearchFragment : Fragment(), PlayerStateListener {
         }
     }
 
+    private fun updateLikeIcon(song: SongItem) {
+        likeBtn?.setImageResource(
+            if (LikedSongsManager.isLiked(requireContext(), song))
+                R.drawable.ic_heart_filled
+            else
+                R.drawable.ic_heart_outline
+        )
+    }
+
     override fun onPlayerStateChanged(isPlaying: Boolean) {
         val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
         val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
         playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
-
 
     override fun onDestroyView() {
         super.onDestroyView()

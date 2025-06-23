@@ -7,3 +7,4 @@ data class SongItem(
     val duration: String,
     val encrypted_media_url: String
 )
+

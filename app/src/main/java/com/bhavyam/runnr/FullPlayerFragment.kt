@@ -1,28 +1,25 @@
 package com.bhavyam.runnr
 
+import android.content.ContentValues
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.SeekBar
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.player.PlayerManager
-import com.bhavyam.runnr.PlayerStateListener
+import com.bhavyam.runnr.storage.LikedSongsManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.content.ContentValues
-import android.os.Build
-import android.provider.MediaStore
 import java.net.URL
 
 class FullPlayerFragment : Fragment(), PlayerStateListener {
@@ -34,6 +31,7 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
     private lateinit var seekBar: SeekBar
     private lateinit var currentTime: TextView
     private lateinit var totalTime: TextView
+    private lateinit var likeBtn: ImageView
 
     private val handler = Handler(Looper.getMainLooper())
     private val updateRunnable = object : Runnable {
@@ -48,10 +46,7 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_full_player, container, false)
     }
 
@@ -63,9 +58,23 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
         seekBar = view.findViewById(R.id.fullPlayerSeekBar)
         currentTime = view.findViewById(R.id.fullPlayerCurrentTime)
         totalTime = view.findViewById(R.id.fullPlayerTotalTime)
+        likeBtn = view.findViewById(R.id.fullPlayerLikeBtn)
 
         val player = PlayerManager.getPlayer() ?: return
         val song = PlayerManager.getCurrentSong() ?: return
+
+        updateLikeButton(song)
+
+        likeBtn.setOnClickListener {
+            if (LikedSongsManager.isLiked(requireContext(), song)) {
+                LikedSongsManager.removeSong(requireContext(), song)
+            } else {
+                LikedSongsManager.addSong(requireContext(), song)
+            }
+            updateLikeButton(song)
+            updatePlayerBarLikeButton(song)
+        }
+
         val downloadBtn = view.findViewById<ImageView>(R.id.fullPlayerDownloadBtn)
         downloadBtn.setOnClickListener {
             downloadCurrentSong()
@@ -85,20 +94,13 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
         playPauseBtn.setImageResource(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
 
         playPauseBtn.setOnClickListener {
-            if (player.isPlaying) {
-                PlayerManager.pause()
-            } else {
-                PlayerManager.resume()
-            }
+            if (player.isPlaying) PlayerManager.pause() else PlayerManager.resume()
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    player.seekTo(progress * 1000L)
-                }
+                if (fromUser) player.seekTo(progress * 1000L)
             }
-
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
@@ -114,17 +116,28 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
 
     override fun onPlayerStateChanged(isPlaying: Boolean) {
         activity?.runOnUiThread {
-            playPauseBtn?.setImageResource(
-                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-            )
+            playPauseBtn.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
             val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
             val playPause = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-            playPause?.setImageResource(
-                if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
-            )
+            playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
         }
     }
 
+    private fun updateLikeButton(song: SongItem) {
+        val isLiked = LikedSongsManager.isLiked(requireContext(), song)
+        likeBtn.setImageResource(if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+    }
+
+    private fun updatePlayerBarLikeButton(song: SongItem) {
+        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+        val playerLikeBtn = playerBar?.findViewById<ImageView>(R.id.playerLikeBtn)
+        playerLikeBtn?.setImageResource(
+            if (LikedSongsManager.isLiked(requireContext(), song))
+                R.drawable.ic_heart_filled
+            else
+                R.drawable.ic_heart_outline
+        )
+    }
 
     private fun formatDuration(seconds: Int): String {
         val min = seconds / 60
@@ -138,14 +151,9 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val streamUrl = withContext(Dispatchers.IO) {
-                    getStreamUrl(song.encrypted_media_url, song.title)
-                }
-
+                val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
                 if (streamUrl.isNullOrEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        showToast("Failed to fetch stream URL")
-                    }
+                    showToast("Failed to fetch stream URL")
                     return@launch
                 }
 
@@ -171,9 +179,7 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
                 }
 
                 uri?.let {
-                    resolver.openOutputStream(it)?.use { output ->
-                        input.copyTo(output)
-                    }
+                    resolver.openOutputStream(it)?.use { output -> input.copyTo(output) }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         contentValues.clear()
@@ -184,16 +190,10 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
                     withContext(Dispatchers.Main) {
                         showToast("Downloaded to Downloads/RUNNR")
                     }
-                } ?: run {
-                    withContext(Dispatchers.Main) {
-                        showToast("Download failed")
-                    }
-                }
+                } ?: showToast("Download failed")
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    showToast("Download error")
-                }
+                showToast("Download error")
                 e.printStackTrace()
             }
         }
