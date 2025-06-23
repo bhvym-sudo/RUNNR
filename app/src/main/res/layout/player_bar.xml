@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:minHeight="64dp"
     android:layout_margin="8dp"
-
+    android:visibility="gone"
     app:cardCornerRadius="20dp"
     app:cardElevation="8dp"
     android:clickable="true"
