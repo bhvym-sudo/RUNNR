@@ -3,10 +3,8 @@ package com.bhavyam.runnr.network
 import android.content.Context
 import android.widget.Toast
 import com.bhavyam.runnr.models.SongItem
-import com.bhavyam.runnr.network.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
@@ -22,6 +20,7 @@ suspend fun searchJioSaavn(context: Context, query: String): List<SongItem> {
         .addHeader("User-Agent", "Mozilla/5.0")
         .addHeader("Referer", "https://www.jiosaavn.com/search/song/$query")
         .addHeader("Accept", "application/json")
+        .addHeader("Connection", "keep-alive")
         .build()
 
     return withContext(Dispatchers.IO) {

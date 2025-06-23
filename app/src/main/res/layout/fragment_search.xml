@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -7,19 +6,37 @@
     android:background="@color/Richblack"
     android:padding="16dp">
 
-
-    <EditText
-        android:id="@+id/searchBox"
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="Search songs, artists..."
-        android:background="@drawable/search_box_bg"
-        android:padding="12dp"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#AAAAAA"
-        android:drawableStart="@drawable/ic_search"
-        android:drawablePadding="10dp"
-        android:inputType="text" />
+        android:layout_height="50dp">
+
+
+
+        <EditText
+            android:id="@+id/searchBox"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/search_box_bg"
+            android:hint="Search songs, artists..."
+            android:textColor="#FFFFFF"
+            android:textColorHint="#AAAAAA"
+            android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="12dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="44dp"
+            android:inputType="text"/>
+
+        <ImageView
+            android:id="@+id/clearButton"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="12dp"
+            android:src="@drawable/ic_clear"
+            android:visibility="gone"
+            android:contentDescription="Clear" />
+    </RelativeLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/searchResults"
@@ -27,5 +44,4 @@
         android:layout_height="match_parent"
         android:layout_marginTop="12dp"
         android:background="@color/Richblack"/>
-
 </LinearLayout>

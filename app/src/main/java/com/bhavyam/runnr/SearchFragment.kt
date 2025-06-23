@@ -33,6 +33,7 @@ class SearchFragment : Fragment(), PlayerStateListener {
     private var searchJob: Job? = null
     private var playPause: ImageView? = null
 
+    @androidx.media3.common.util.UnstableApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -43,6 +44,20 @@ class SearchFragment : Fragment(), PlayerStateListener {
 
         val searchBox = view.findViewById<EditText>(R.id.searchBox)
         val recyclerView = view.findViewById<RecyclerView>(R.id.searchResults)
+        val clearButton = view.findViewById<ImageView>(R.id.clearButton)
+
+        searchBox.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                clearButton.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        clearButton.setOnClickListener {
+            searchBox.setText("")
+        }
 
         searchAdapter = SearchAdapter { song -> onSongClick(song) }
         recyclerView.adapter = searchAdapter
@@ -73,14 +88,14 @@ class SearchFragment : Fragment(), PlayerStateListener {
 
         return view
     }
-
+    @androidx.media3.common.util.UnstableApi
     private fun onSongClick(song: SongItem) {
         lifecycleScope.launch {
             try {
                 val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
                 if (!streamUrl.isNullOrEmpty()) {
                     PlayerManager.setCurrentSong(song)
-                    PlayerManager.playStream(streamUrl)
+                    PlayerManager.playStream(requireContext(), streamUrl)
                     updatePlayerBarUI(song)
                 } else {
                     Toast.makeText(requireContext(), "Failed to load stream", Toast.LENGTH_SHORT).show()
