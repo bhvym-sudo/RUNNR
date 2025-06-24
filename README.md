@@ -23,5 +23,8 @@
 - Network error pop ups in between
   - Will remove from error handling
   
-- Late loading of songs
+- Late loading of songs on wifi
   - Will use RetroAPI properly with dns caching etc
+
+- Song plays in background for sometime
+  - Fixed, coming in upcoming release
