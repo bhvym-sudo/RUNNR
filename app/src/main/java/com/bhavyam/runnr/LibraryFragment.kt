@@ -33,7 +33,7 @@ class LibraryFragment : Fragment(), PlayerStateListener {
     ): View {
         val view = inflater.inflate(R.layout.fragment_library, container, false)
 
-        likedSection = view.findViewById(R.id.likedSongsSection)
+
         recyclerView = view.findViewById(R.id.libraryRecycler)
         titleText = view.findViewById(R.id.libraryTitle)
         subtitleText = view.findViewById(R.id.libraryMessage)
@@ -41,19 +41,20 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         adapter = SearchAdapter { song -> playSong(song) }
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
-
-        likedSection.setOnClickListener {
-            val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
-            if (likedSongs.isEmpty()) {
-                subtitleText.text = "No liked songs yet."
-                recyclerView.visibility = View.GONE
-            } else {
-                titleText.text = "Liked Songs"
-                subtitleText.text = ""
-                adapter.updateList(likedSongs)
-                recyclerView.visibility = View.VISIBLE
-            }
+        val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
+        if (likedSongs.isEmpty()) {
+            titleText.text = "Liked Songs"
+            subtitleText.text = "No liked songs yet."
+            recyclerView.visibility = View.GONE
+        } else {
+            titleText.text = "Liked Songs"
+            subtitleText.text = "Your liked songs will appear here."
+            adapter.updateList(likedSongs)
+            recyclerView.visibility = View.VISIBLE
         }
+
+
+
 
         setupPlayerBar()
         return view
@@ -99,22 +100,33 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         likeBtn?.setOnClickListener {
             val currentSong = PlayerManager.getCurrentSong() ?: return@setOnClickListener
             val context = requireContext()
-            if (LikedSongsManager.isLiked(context, currentSong)) {
+            val wasLiked = LikedSongsManager.isLiked(context, currentSong)
+            if (wasLiked) {
                 LikedSongsManager.removeSong(context, currentSong)
                 likeBtn?.setImageResource(R.drawable.ic_heart_outline)
             } else {
                 LikedSongsManager.addSong(context, currentSong)
                 likeBtn?.setImageResource(R.drawable.ic_heart_filled)
             }
+
+            val updatedList = LikedSongsManager.getLikedSongs(context)
+            adapter.updateList(updatedList)
+
+            if (updatedList.isEmpty()) {
+                recyclerView.visibility = View.GONE
+                subtitleText.text = "No liked songs yet."
+            } else {
+                recyclerView.visibility = View.VISIBLE
+                subtitleText.text = ""
+            }
+
         }
 
         playerBar.setOnClickListener {
-            val fragment = FullPlayerFragment()
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .addToBackStack(null)
-                .commit()
+            (activity as? MainActivity)?.showFullPlayer()
         }
+
+
     }
 
     private fun updatePlayerBarUI() {
@@ -136,9 +148,6 @@ class LibraryFragment : Fragment(), PlayerStateListener {
             .load(currentSong.image)
             .into(image)
 
-        playPause?.setImageResource(
-            if (PlayerManager.getPlayer()?.isPlaying == true) R.drawable.ic_pause else R.drawable.ic_play
-        )
 
         likeBtn?.setImageResource(
             if (LikedSongsManager.isLiked(requireContext(), currentSong))

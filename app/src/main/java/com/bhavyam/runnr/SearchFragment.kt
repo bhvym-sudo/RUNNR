@@ -157,15 +157,14 @@ class SearchFragment : Fragment(), PlayerStateListener {
                 LikedSongsManager.addSong(requireContext(), song)
             }
             updateLikeIcon(song)
+            searchAdapter.notifyDataSetChanged()
+
         }
 
         playerBar.setOnClickListener {
-            val fragment = FullPlayerFragment()
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .addToBackStack(null)
-                .commit()
+            (activity as? MainActivity)?.showFullPlayer()
         }
+
     }
 
     private fun updateLikeIcon(song: SongItem) {
@@ -176,6 +175,7 @@ class SearchFragment : Fragment(), PlayerStateListener {
                 R.drawable.ic_heart_outline
         )
     }
+
 
     override fun onPlayerStateChanged(isPlaying: Boolean) {
         val playerBar = requireActivity().findViewById<View>(R.id.playerBar)

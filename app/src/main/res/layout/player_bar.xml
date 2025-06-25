@@ -79,7 +79,7 @@
                 android:layout_marginTop="2dp"
                 android:contentDescription="Like button"
                 android:src="@drawable/ic_heart_outline"
-                app:tint="@color/Paynegray" />
+                />
 
             <ImageView
                 android:id="@+id/playPauseBtn"

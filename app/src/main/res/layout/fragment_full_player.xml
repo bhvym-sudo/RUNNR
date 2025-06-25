@@ -97,7 +97,7 @@
             android:layout_marginEnd="3dp"
             android:layout_marginTop="7dp"
             android:src="@drawable/ic_heart_outline"
-            app:tint="@android:color/white" />
+            />
 
         <FrameLayout
             android:layout_width="72dp"

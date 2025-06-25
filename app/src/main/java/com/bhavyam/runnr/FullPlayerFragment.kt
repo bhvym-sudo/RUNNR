@@ -60,8 +60,16 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
         totalTime = view.findViewById(R.id.fullPlayerTotalTime)
         likeBtn = view.findViewById(R.id.fullPlayerLikeBtn)
 
-        val player = PlayerManager.getPlayer() ?: return
-        val song = PlayerManager.getCurrentSong() ?: return
+        PlayerManager.addListener(this)
+
+        val player = PlayerManager.getPlayer()
+        val song = PlayerManager.getCurrentSong()
+
+        if (player == null || song == null) {
+            Toast.makeText(requireContext(), "No song is currently playing", Toast.LENGTH_SHORT).show()
+            parentFragmentManager.popBackStack() // Close the fragment
+            return
+        }
 
         updateLikeButton(song)
 

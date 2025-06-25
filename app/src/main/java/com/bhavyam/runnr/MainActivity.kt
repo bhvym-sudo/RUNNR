@@ -4,35 +4,88 @@ import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import com.bhavyam.runnr.HomeFragment
-import com.bhavyam.runnr.SearchFragment
-import com.bhavyam.runnr.LibraryFragment
+import androidx.fragment.app.FragmentManager
+import com.bhavyam.runnr.player.PlayerManager
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
+    private var currentFragmentTag: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        PlayerManager.init(applicationContext)
+
 
         if (savedInstanceState == null) {
-            loadFragment(HomeFragment())
+            switchFragment("home", HomeFragment())
         }
 
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_nav)
         bottomNav.setOnItemSelectedListener { item ->
+            hideFullPlayer()
             when (item.itemId) {
-                R.id.nav_home -> loadFragment(HomeFragment())
-                R.id.nav_search -> loadFragment(SearchFragment())
-                R.id.nav_library -> loadFragment(LibraryFragment())
+                R.id.nav_home -> switchFragment("home", HomeFragment())
+                R.id.nav_search -> switchFragment("search", SearchFragment())
+                R.id.nav_library -> switchFragment("library", LibraryFragment())
             }
             true
         }
+
+        val playerBar = findViewById<View>(R.id.playerBar)
+        playerBar.setOnClickListener {
+            showFullPlayer()
+        }
     }
 
-    private fun loadFragment(fragment: Fragment) {
+    private fun switchFragment(tag: String, fragment: Fragment) {
+        val transaction = supportFragmentManager.beginTransaction()
+
+        val existingFragment = supportFragmentManager.findFragmentByTag(tag)
+        val currentFragment = currentFragmentTag?.let {
+            supportFragmentManager.findFragmentByTag(it)
+        }
+
+        if (currentFragment != null && currentFragment.isVisible) {
+            transaction.hide(currentFragment)
+        }
+
+        if (existingFragment != null) {
+            transaction.show(existingFragment)
+        } else {
+            transaction.add(R.id.fragment_container, fragment, tag)
+        }
+
+        currentFragmentTag = tag
+        transaction.commit()
+    }
+
+    fun showFullPlayer() {
+        findViewById<View>(R.id.fullPlayerContainer).visibility = View.VISIBLE
+
         supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
+            .replace(R.id.fullPlayerContainer, FullPlayerFragment())
+            .commitNowAllowingStateLoss()
+    }
+
+    fun hideFullPlayer() {
+        val container = findViewById<View>(R.id.fullPlayerContainer)
+        val fullPlayer = supportFragmentManager.findFragmentById(R.id.fullPlayerContainer)
+        if (fullPlayer != null) {
+            supportFragmentManager.beginTransaction()
+                .remove(fullPlayer)
+                .commitNowAllowingStateLoss()
+        }
+        container.visibility = View.GONE
+    }
+
+    override fun onBackPressed() {
+        val fullPlayer = supportFragmentManager.findFragmentById(R.id.fullPlayerContainer)
+        if (fullPlayer is FullPlayerFragment) {
+            hideFullPlayer()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
