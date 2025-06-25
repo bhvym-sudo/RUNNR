@@ -15,10 +15,9 @@ import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.player.PlayerManager
 import com.bhavyam.runnr.storage.LikedSongsManager
-import com.bhavyam.runnr.PlayerStateListener
 import kotlinx.coroutines.*
 
-class PlaylistFragment : Fragment(), PlayerStateListener {
+class PlaylistFragment : Fragment() {
 
     private lateinit var playlistTitle: String
     private lateinit var recyclerView: RecyclerView
@@ -30,8 +29,7 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
         super.onCreate(savedInstanceState)
         playlistTitle = arguments?.getString("playlistName") ?: "Liked Songs"
     }
-
-    @androidx.media3.common.util.UnstableApi
+    @androidx. media3.common. util. UnstableApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -60,16 +58,9 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
 
     override fun onResume() {
         super.onResume()
-        PlayerManager.addListener(this)
         updatePlayerBarUI()
     }
-
-    override fun onPause() {
-        super.onPause()
-        PlayerManager.removeListener(this)
-    }
-
-    @androidx.media3.common.util.UnstableApi
+    @androidx. media3.common. util. UnstableApi
     private fun onSongClick(song: SongItem) {
         CoroutineScope(Dispatchers.Main).launch {
             val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
@@ -89,12 +80,13 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
         likeBtn = playerBar.findViewById(R.id.playerLikeBtn)
 
         playPause?.setOnClickListener {
-            val player = PlayerManager.getPlayer()
-            if (player?.isPlaying == true) {
-                PlayerManager.pause()
+            val controller = PlayerManager.controller
+            if (controller?.isPlaying == true) {
+                controller.pause()
             } else {
-                PlayerManager.resume()
+                controller?.play()
             }
+            updatePlayPauseIcon()
         }
 
         likeBtn?.setOnClickListener {
@@ -107,14 +99,11 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
                 LikedSongsManager.addSong(context, currentSong)
                 likeBtn?.setImageResource(R.drawable.ic_heart_filled)
             }
+            updatePlaylist()
         }
 
         playerBar.setOnClickListener {
-            val fragment = FullPlayerFragment()
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .addToBackStack(null)
-                .commit()
+            (activity as? MainActivity)?.showFullPlayer()
         }
     }
 
@@ -136,9 +125,7 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
             .load(currentSong.image)
             .into(image)
 
-        playPause?.setImageResource(
-            if (PlayerManager.getPlayer()?.isPlaying == true) R.drawable.ic_pause else R.drawable.ic_play
-        )
+        updatePlayPauseIcon()
 
         likeBtn?.setImageResource(
             if (LikedSongsManager.isLiked(requireContext(), currentSong))
@@ -152,10 +139,23 @@ class PlaylistFragment : Fragment(), PlayerStateListener {
         playerBar.visibility = View.VISIBLE
     }
 
-    override fun onPlayerStateChanged(isPlaying: Boolean) {
-        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-        val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-        playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+    private fun updatePlayPauseIcon() {
+        val isPlaying = PlayerManager.controller?.isPlaying == true
+        playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+    }
+
+    private fun updatePlaylist() {
+        val updatedSongs = LikedSongsManager.getLikedSongs(requireContext())
+        val adapter = recyclerView.adapter as? SearchAdapter
+        adapter?.updateList(updatedSongs)
+
+        if (updatedSongs.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyText.visibility = View.VISIBLE
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyText.visibility = View.GONE
+        }
     }
 
     companion object {

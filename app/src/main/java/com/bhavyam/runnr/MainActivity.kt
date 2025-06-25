@@ -1,11 +1,13 @@
 package com.bhavyam.runnr
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import com.bhavyam.runnr.player.PlayerManager
+import com.bhavyam.runnr.service.MusicService
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
@@ -15,7 +17,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        PlayerManager.init(applicationContext)
+        val intent = Intent(this, MusicService::class.java)
+        startService(intent)
+        PlayerManager.initController(this) {}
+
 
 
         if (savedInstanceState == null) {

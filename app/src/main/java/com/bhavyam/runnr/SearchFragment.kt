@@ -18,15 +18,25 @@ import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.network.searchJioSaavn
 import com.bhavyam.runnr.player.PlayerManager
 import com.bhavyam.runnr.storage.LikedSongsManager
-import com.bhavyam.runnr.PlayerStateListener
 import kotlinx.coroutines.*
+import androidx.media3.common.Player
 
-class SearchFragment : Fragment(), PlayerStateListener {
+class SearchFragment : Fragment() {
 
     private lateinit var searchAdapter: SearchAdapter
     private var searchJob: Job? = null
     private var playPause: ImageView? = null
     private var likeBtn: ImageView? = null
+
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            activity?.runOnUiThread {
+                val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+                val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
+                playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+            }
+        }
+    }
 
     @androidx.media3.common.util.UnstableApi
     override fun onCreateView(
@@ -34,9 +44,6 @@ class SearchFragment : Fragment(), PlayerStateListener {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_search, container, false)
-        PlayerManager.init(requireContext())
-        PlayerManager.addListener(this)
-
         val searchBox = view.findViewById<EditText>(R.id.searchBox)
         val recyclerView = view.findViewById<RecyclerView>(R.id.searchResults)
         val clearButton = view.findViewById<ImageView>(R.id.clearButton)
@@ -80,6 +87,8 @@ class SearchFragment : Fragment(), PlayerStateListener {
                 }
             }
         })
+
+        PlayerManager.controller?.addListener(playerListener)
 
         return view
     }
@@ -140,11 +149,11 @@ class SearchFragment : Fragment(), PlayerStateListener {
 
         playPause?.setImageResource(R.drawable.ic_pause)
         playPause?.setOnClickListener {
-            val player = PlayerManager.getPlayer()
-            if (player?.isPlaying == true) {
-                PlayerManager.pause()
+            val controller = PlayerManager.controller
+            if (controller?.isPlaying == true) {
+                controller.pause()
             } else {
-                PlayerManager.resume()
+                controller?.play()
             }
         }
 
@@ -158,13 +167,11 @@ class SearchFragment : Fragment(), PlayerStateListener {
             }
             updateLikeIcon(song)
             searchAdapter.notifyDataSetChanged()
-
         }
 
         playerBar.setOnClickListener {
             (activity as? MainActivity)?.showFullPlayer()
         }
-
     }
 
     private fun updateLikeIcon(song: SongItem) {
@@ -176,15 +183,8 @@ class SearchFragment : Fragment(), PlayerStateListener {
         )
     }
 
-
-    override fun onPlayerStateChanged(isPlaying: Boolean) {
-        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-        val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-        playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
-        PlayerManager.removeListener(this)
+        PlayerManager.controller?.removeListener(playerListener)
     }
 }

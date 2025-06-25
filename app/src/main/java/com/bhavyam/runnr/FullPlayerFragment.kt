@@ -12,6 +12,9 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.session.MediaController
+import androidx.media3.common.Player
+
 import com.bumptech.glide.Glide
 import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
@@ -22,7 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-class FullPlayerFragment : Fragment(), PlayerStateListener {
+class FullPlayerFragment : Fragment() {
 
     private lateinit var image: ImageView
     private lateinit var title: TextView
@@ -36,9 +39,9 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
     private val handler = Handler(Looper.getMainLooper())
     private val updateRunnable = object : Runnable {
         override fun run() {
-            val player = PlayerManager.getPlayer()
-            if (player != null && player.isPlaying) {
-                val positionSec = (player.currentPosition / 1000).toInt()
+            val controller = PlayerManager.controller
+            if (controller != null && controller.isPlaying) {
+                val positionSec = (controller.currentPosition / 1000).toInt()
                 seekBar.progress = positionSec
                 currentTime.text = formatDuration(positionSec)
             }
@@ -60,16 +63,25 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
         totalTime = view.findViewById(R.id.fullPlayerTotalTime)
         likeBtn = view.findViewById(R.id.fullPlayerLikeBtn)
 
-        PlayerManager.addListener(this)
-
-        val player = PlayerManager.getPlayer()
+        val controller = PlayerManager.controller
         val song = PlayerManager.getCurrentSong()
 
-        if (player == null || song == null) {
+        if (controller == null || song == null) {
             Toast.makeText(requireContext(), "No song is currently playing", Toast.LENGTH_SHORT).show()
-            parentFragmentManager.popBackStack() // Close the fragment
+            parentFragmentManager.popBackStack()
             return
         }
+
+        controller.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                activity?.runOnUiThread {
+                    playPauseBtn.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+                    val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+                    val playPause = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
+                    playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+                }
+            }
+        })
 
         updateLikeButton(song)
 
@@ -88,26 +100,30 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
             downloadCurrentSong()
         }
 
-        PlayerManager.addListener(this)
-
         title.text = song.title
         subtitle.text = song.subtitle
         Glide.with(requireContext()).load(song.image).into(image)
 
-        val durationMs = player.duration
+        val durationMs = controller.duration
         val durationSec = (durationMs / 1000).toInt().coerceAtLeast(1)
         seekBar.max = durationSec
         totalTime.text = formatDuration(durationSec)
 
-        playPauseBtn.setImageResource(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        playPauseBtn.setImageResource(if (controller.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
 
         playPauseBtn.setOnClickListener {
-            if (player.isPlaying) PlayerManager.pause() else PlayerManager.resume()
+            if (controller.isPlaying) {
+                controller.pause()
+            } else {
+                controller.play()
+            }
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) player.seekTo(progress * 1000L)
+                if (fromUser) {
+                    controller.seekTo(progress * 1000L)
+                }
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -119,16 +135,6 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
     override fun onDestroyView() {
         super.onDestroyView()
         handler.removeCallbacks(updateRunnable)
-        PlayerManager.removeListener(this)
-    }
-
-    override fun onPlayerStateChanged(isPlaying: Boolean) {
-        activity?.runOnUiThread {
-            playPauseBtn.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-            val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-            val playPause = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-            playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-        }
     }
 
     private fun updateLikeButton(song: SongItem) {
@@ -155,7 +161,6 @@ class FullPlayerFragment : Fragment(), PlayerStateListener {
 
     private fun downloadCurrentSong() {
         val song = PlayerManager.getCurrentSong() ?: return
-        val player = PlayerManager.getPlayer() ?: return
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {

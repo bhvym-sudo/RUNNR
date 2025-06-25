@@ -18,7 +18,6 @@ import kotlinx.coroutines.*
 
 class LibraryFragment : Fragment(), PlayerStateListener {
 
-    private lateinit var likedSection: LinearLayout
     private lateinit var recyclerView: RecyclerView
     private lateinit var titleText: TextView
     private lateinit var subtitleText: TextView
@@ -33,7 +32,6 @@ class LibraryFragment : Fragment(), PlayerStateListener {
     ): View {
         val view = inflater.inflate(R.layout.fragment_library, container, false)
 
-
         recyclerView = view.findViewById(R.id.libraryRecycler)
         titleText = view.findViewById(R.id.libraryTitle)
         subtitleText = view.findViewById(R.id.libraryMessage)
@@ -41,22 +39,10 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         adapter = SearchAdapter { song -> playSong(song) }
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
-        val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
-        if (likedSongs.isEmpty()) {
-            titleText.text = "Liked Songs"
-            subtitleText.text = "No liked songs yet."
-            recyclerView.visibility = View.GONE
-        } else {
-            titleText.text = "Liked Songs"
-            subtitleText.text = "Your liked songs will appear here."
-            adapter.updateList(likedSongs)
-            recyclerView.visibility = View.VISIBLE
-        }
 
-
-
-
+        updateList()
         setupPlayerBar()
+
         return view
     }
 
@@ -71,15 +57,17 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         PlayerManager.removeListener(this)
     }
 
-    @androidx.media3.common.util.UnstableApi
-    private fun playSong(song: SongItem) {
-        CoroutineScope(Dispatchers.Main).launch {
-            val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
-            if (!streamUrl.isNullOrEmpty()) {
-                PlayerManager.setCurrentSong(song)
-                PlayerManager.playStream(requireContext(), streamUrl)
-                updatePlayerBarUI()
-            }
+    private fun updateList() {
+        val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
+        if (likedSongs.isEmpty()) {
+            titleText.text = "Liked Songs"
+            subtitleText.text = "No liked songs yet."
+            recyclerView.visibility = View.GONE
+        } else {
+            titleText.text = "Liked Songs"
+            subtitleText.text = ""
+            adapter.updateList(likedSongs)
+            recyclerView.visibility = View.VISIBLE
         }
     }
 
@@ -89,12 +77,13 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         likeBtn = playerBar.findViewById(R.id.playerLikeBtn)
 
         playPause?.setOnClickListener {
-            val player = PlayerManager.getPlayer()
-            if (player?.isPlaying == true) {
-                PlayerManager.pause()
+            val controller = PlayerManager.controller
+            if (controller?.isPlaying == true) {
+                controller.pause()
             } else {
-                PlayerManager.resume()
+                controller?.play()
             }
+            updatePlayPauseIcon()
         }
 
         likeBtn?.setOnClickListener {
@@ -108,25 +97,12 @@ class LibraryFragment : Fragment(), PlayerStateListener {
                 LikedSongsManager.addSong(context, currentSong)
                 likeBtn?.setImageResource(R.drawable.ic_heart_filled)
             }
-
-            val updatedList = LikedSongsManager.getLikedSongs(context)
-            adapter.updateList(updatedList)
-
-            if (updatedList.isEmpty()) {
-                recyclerView.visibility = View.GONE
-                subtitleText.text = "No liked songs yet."
-            } else {
-                recyclerView.visibility = View.VISIBLE
-                subtitleText.text = ""
-            }
-
+            updateList()
         }
 
         playerBar.setOnClickListener {
             (activity as? MainActivity)?.showFullPlayer()
         }
-
-
     }
 
     private fun updatePlayerBarUI() {
@@ -146,8 +122,22 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         Glide.with(requireContext())
             .asBitmap()
             .load(currentSong.image)
-            .into(image)
+            .into(object : com.bumptech.glide.request.target.BitmapImageViewTarget(image) {
+                override fun setResource(resource: android.graphics.Bitmap?) {
+                    super.setResource(resource)
+                    resource?.let {
+                        androidx.palette.graphics.Palette.from(it).generate { palette ->
+                            val color = palette?.getDominantColor(
+                                ContextCompat.getColor(requireContext(), R.color.Richblack)
+                            ) ?: ContextCompat.getColor(requireContext(), R.color.Richblack)
+                            colorLayer?.setBackgroundColor(color)
+                            nightOverlay?.alpha = 0.75f
+                        }
+                    }
+                }
+            })
 
+        updatePlayPauseIcon()
 
         likeBtn?.setImageResource(
             if (LikedSongsManager.isLiked(requireContext(), currentSong))
@@ -155,14 +145,28 @@ class LibraryFragment : Fragment(), PlayerStateListener {
             else
                 R.drawable.ic_heart_outline
         )
+    }
 
-        colorLayer?.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.Richblack))
-        nightOverlay?.alpha = 0.75f
+    private fun updatePlayPauseIcon() {
+        val isPlaying = PlayerManager.controller?.isPlaying == true
+        playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
 
     override fun onPlayerStateChanged(isPlaying: Boolean) {
-        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-        val playPauseBtn = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-        playPauseBtn?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        updatePlayPauseIcon()
+    }
+
+    @androidx.media3.common.util.UnstableApi
+    private fun playSong(song: SongItem) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
+            if (!streamUrl.isNullOrEmpty()) {
+                PlayerManager.setCurrentSong(song)
+                PlayerManager.playStream(requireContext(), streamUrl)
+                updatePlayerBarUI()
+            } else {
+                Toast.makeText(requireContext(), "Failed to stream song", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

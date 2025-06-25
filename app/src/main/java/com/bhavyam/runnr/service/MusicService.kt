@@ -14,15 +14,31 @@ import androidx.media3.session.MediaSessionService
 import com.bhavyam.runnr.R
 
 class MusicService : MediaSessionService() {
-    private var mediaSession: MediaSession? = null
+
     private lateinit var player: ExoPlayer
+    private var mediaSession: MediaSession? = null
+
+    companion object {
+        private const val CHANNEL_ID = "runnr_music_channel"
+        private const val NOTIFICATION_ID = 101
+    }
 
     @UnstableApi
     override fun onCreate() {
         super.onCreate()
-        player = ExoPlayer.Builder(this).build()
-        mediaSession = MediaSession.Builder(this, player).build()
-        // Remove setMediaSession() - it doesn't exist in MediaSessionService
+
+        // Create ExoPlayer instance
+        player = ExoPlayer.Builder(this).build().apply {
+            playWhenReady = true
+        }
+
+        // Create MediaSession for media controls
+        mediaSession = MediaSession.Builder(this, player)
+            .setId("RUNNR_SESSION")
+            .build()
+
+        // Start foreground service with notification
+        createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
     }
 
@@ -36,13 +52,26 @@ class MusicService : MediaSessionService() {
         super.onDestroy()
     }
 
-    @UnstableApi
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        player.stop()
+        player.release()
+        mediaSession?.release()
+        mediaSession = null
+        stopForeground(true)
+        stopSelf()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        return START_NOT_STICKY
+    }
+    @androidx. media3.common. util. UnstableApi
     private fun buildNotification(): Notification {
-        createNotificationChannel()
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("RUNNR")
-            .setContentText("Music playing")
-            .setSmallIcon(R.drawable.ic_music_note) // Add your icon in drawable
+            .setContentText("Music is playing")
+            .setSmallIcon(R.drawable.ic_music_note)
             .setStyle(MediaStyle().setMediaSession(mediaSession?.sessionCompatToken))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -59,10 +88,5 @@ class MusicService : MediaSessionService() {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
-    }
-
-    companion object {
-        private const val CHANNEL_ID = "runnr_music_channel"
-        private const val NOTIFICATION_ID = 101
     }
 }
