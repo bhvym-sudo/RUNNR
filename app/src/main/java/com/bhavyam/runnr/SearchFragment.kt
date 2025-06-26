@@ -79,7 +79,6 @@ class SearchFragment : Fragment() {
                             searchAdapter.updateList(results)
                         } catch (e: Exception) {
                             Log.e("SearchError", "Error fetching search results", e)
-                            Toast.makeText(requireContext(), "Network error", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
@@ -100,7 +99,7 @@ class SearchFragment : Fragment() {
                 val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
                 if (!streamUrl.isNullOrEmpty()) {
                     PlayerManager.setCurrentSong(song)
-                    PlayerManager.playStream(requireContext(), streamUrl)
+                    PlayerManager.playStream(requireContext(), song)
                     updatePlayerBarUI(song)
                 } else {
                     Toast.makeText(requireContext(), "Failed to load stream", Toast.LENGTH_SHORT).show()
@@ -165,9 +164,13 @@ class SearchFragment : Fragment() {
             } else {
                 LikedSongsManager.addSong(requireContext(), song)
             }
+
             updateLikeIcon(song)
             searchAdapter.notifyDataSetChanged()
+
+            (activity as? MainActivity)?.libraryFragment?.updateList()
         }
+
 
         playerBar.setOnClickListener {
             (activity as? MainActivity)?.showFullPlayer()

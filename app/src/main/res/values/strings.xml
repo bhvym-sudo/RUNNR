@@ -1,3 +1,33 @@
 <resources>
     <string name="app_name">RUNNR</string>
+    <string name="x2">Version x-2</string>
+    <string name="x2desc">
+- Added liked songs feature\n
+- Added navigation (next/previous) buttons\n
+- Added repeat button\n
+- Improved full-screen player UI with dynamic color gradient\n
+- Fixed background playback issues\n
+- Player bar and full player now sync like/unlike icons\n
+- Liked songs update instantly in Library\n
+- Gradient overlay brightness adjustable\n
+- Solid background added behind gradient
+        \n
+</string>
+
+    <string name="x1desc">
+- Implemented bottom navigation with Home, Search, and Library screens\n
+- Integrated JioSaavn search API with live search\n
+- Added custom player bar with title, subtitle, and image\n
+- Added full-screen player with seek bar and playback controls\n
+- Integrated ExoPlayer for smooth streaming with seek support\n
+- Playback persists across fragment navigation\n
+- Added support for foreground service with media notification\n
+- Songs can be liked and stored locally\n
+- Download unlimited songs.
+</string>
+
+    <string name="madeby">Made by bhvym</string>
+
+
+    <string name="welcome">\nWelcome to RUNNR your personalized music experience. Use the search tab to discover music, and the library tab to access saved tracks.\n</string>
 </resources>

@@ -66,7 +66,7 @@ class PlaylistFragment : Fragment() {
             val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
             if (!streamUrl.isNullOrEmpty()) {
                 PlayerManager.setCurrentSong(song)
-                PlayerManager.playStream(requireContext(), streamUrl)
+                PlayerManager.playStream(requireContext(), song)
                 updatePlayerBarUI()
             } else {
                 Toast.makeText(requireContext(), "Unable to stream song", Toast.LENGTH_SHORT).show()

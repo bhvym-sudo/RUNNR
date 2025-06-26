@@ -10,38 +10,37 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bhavyam.runnr.adapters.SearchAdapter
 import com.bhavyam.runnr.models.SongItem
-import com.bhavyam.runnr.network.getStreamUrl
 import com.bhavyam.runnr.player.PlayerManager
 import com.bhavyam.runnr.storage.LikedSongsManager
 import com.bhavyam.runnr.PlayerStateListener
-import kotlinx.coroutines.*
 
 class LibraryFragment : Fragment(), PlayerStateListener {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var titleText: TextView
     private lateinit var subtitleText: TextView
-    private lateinit var adapter: SearchAdapter
+    private lateinit var likedSongsAdapter: SearchAdapter
     private var playPause: ImageView? = null
     private var likeBtn: ImageView? = null
 
-    @androidx.media3.common.util.UnstableApi
+    @androidx. media3.common. util. UnstableApi
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
+
     ): View {
         val view = inflater.inflate(R.layout.fragment_library, container, false)
-
+        (activity as? MainActivity)?.libraryFragment = this
         recyclerView = view.findViewById(R.id.libraryRecycler)
         titleText = view.findViewById(R.id.libraryTitle)
         subtitleText = view.findViewById(R.id.libraryMessage)
 
-        adapter = SearchAdapter { song -> playSong(song) }
+        likedSongsAdapter = SearchAdapter { song -> playSong(song) }
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = adapter
+        recyclerView.adapter = likedSongsAdapter
 
-        updateList()
         setupPlayerBar()
+        updateList()
 
         return view
     }
@@ -50,6 +49,7 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         super.onResume()
         PlayerManager.addListener(this)
         updatePlayerBarUI()
+        updateList()
     }
 
     override fun onPause() {
@@ -57,7 +57,7 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         PlayerManager.removeListener(this)
     }
 
-    private fun updateList() {
+    fun updateList() {
         val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
         if (likedSongs.isEmpty()) {
             titleText.text = "Liked Songs"
@@ -66,9 +66,9 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         } else {
             titleText.text = "Liked Songs"
             subtitleText.text = ""
-            adapter.updateList(likedSongs)
             recyclerView.visibility = View.VISIBLE
         }
+        likedSongsAdapter.updateList(likedSongs)
     }
 
     private fun setupPlayerBar() {
@@ -156,17 +156,15 @@ class LibraryFragment : Fragment(), PlayerStateListener {
         updatePlayPauseIcon()
     }
 
-    @androidx.media3.common.util.UnstableApi
+    @androidx. media3.common. util. UnstableApi
     private fun playSong(song: SongItem) {
-        CoroutineScope(Dispatchers.Main).launch {
-            val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
-            if (!streamUrl.isNullOrEmpty()) {
-                PlayerManager.setCurrentSong(song)
-                PlayerManager.playStream(requireContext(), streamUrl)
-                updatePlayerBarUI()
-            } else {
-                Toast.makeText(requireContext(), "Failed to stream song", Toast.LENGTH_SHORT).show()
-            }
+        val likedSongs = LikedSongsManager.getLikedSongs(requireContext())
+        val songIndex = likedSongs.indexOfFirst { it.encrypted_media_url == song.encrypted_media_url }
+        if (songIndex != -1) {
+            PlayerManager.playSongWithQueue(requireContext(), likedSongs, songIndex)
+            updatePlayerBarUI()
+        } else {
+            Toast.makeText(requireContext(), "Song not found in liked songs", Toast.LENGTH_SHORT).show()
         }
     }
 }

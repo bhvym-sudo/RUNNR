@@ -43,5 +43,18 @@ object LikedSongsManager {
     private fun save(context: Context, songs: List<SongItem>) {
         val file = getFile(context)
         file.writeText(Gson().toJson(songs))
+    }fun getAllSongs(context: Context): List<SongItem> {
+        val file = File(context.filesDir, "liked_songs.json")
+        if (!file.exists()) return emptyList()
+
+        return try {
+            val json = file.readText()
+            val type = object : TypeToken<List<SongItem>>() {}.type
+            Gson().fromJson(json, type)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
     }
+
 }

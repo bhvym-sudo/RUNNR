@@ -16,9 +16,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RUNNR"
+            android:textColor="@android:color/white"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white" />
+            android:layout_gravity="center"/>
 
         <TextView
             android:id="@+id/appSubtitle"
@@ -27,16 +28,64 @@
             android:text="Stream. Save. Run your vibe."
             android:textSize="16sp"
             android:textColor="#cccccc"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="4dp"
+            android:layout_gravity="center"/>
 
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="\nWelcome to RUNNR — your personalized music experience. Use the search tab to discover music, and the library tab to access saved tracks.\n"
+            android:text="@string/welcome"
+            android:textColor="#dddddd"
+            android:textSize="14sp"
+            android:layout_marginTop="16dp"
+            android:layout_gravity="center"/>
+
+        <TextView
+            android:id="@+id/versionx2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/x2"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/x2desc"
             android:textColor="#dddddd"
             android:textSize="14sp"
             android:layout_marginTop="16dp" />
+
+        <TextView
+            android:id="@+id/versionx1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Version x-1"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/x1desc"
+            android:textColor="#dddddd"
+            android:textSize="14sp"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:id="@+id/appby"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/madeby"
+            android:textColor="#dddddd"
+            android:textSize="14sp"
+            android:layout_marginTop="16dp"
+            android:gravity="center"/>
+
+
 
 
 

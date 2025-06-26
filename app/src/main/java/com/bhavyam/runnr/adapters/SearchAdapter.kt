@@ -19,6 +19,7 @@ class SearchAdapter(private val onItemClick: (SongItem) -> Unit) : RecyclerView.
         notifyDataSetChanged()
     }
 
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_song, parent, false)

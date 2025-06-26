@@ -1,20 +1,14 @@
 package com.bhavyam.runnr
 
 import android.content.ContentValues
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.graphics.Color
+import android.os.*
 import android.provider.MediaStore
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.session.MediaController
 import androidx.media3.common.Player
-
 import com.bumptech.glide.Glide
 import com.bhavyam.runnr.models.SongItem
 import com.bhavyam.runnr.network.getStreamUrl
@@ -24,6 +18,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
+import androidx.media3.common.MediaItem
+import android.graphics.drawable.GradientDrawable
+import androidx.palette.graphics.Palette
+import androidx.core.content.ContextCompat
+
 
 class FullPlayerFragment : Fragment() {
 
@@ -31,16 +30,20 @@ class FullPlayerFragment : Fragment() {
     private lateinit var title: TextView
     private lateinit var subtitle: TextView
     private lateinit var playPauseBtn: ImageView
+    private lateinit var nextBtn: ImageView
+    private lateinit var prevBtn: ImageView
     private lateinit var seekBar: SeekBar
     private lateinit var currentTime: TextView
     private lateinit var totalTime: TextView
     private lateinit var likeBtn: ImageView
+    private lateinit var repBtn: ImageView
+    private lateinit var gradientOverlay: View
+
 
     private val handler = Handler(Looper.getMainLooper())
     private val updateRunnable = object : Runnable {
         override fun run() {
-            val controller = PlayerManager.controller
-            if (controller != null && controller.isPlaying) {
+            PlayerManager.controller?.let { controller ->
                 val positionSec = (controller.currentPosition / 1000).toInt()
                 seekBar.progress = positionSec
                 currentTime.text = formatDuration(positionSec)
@@ -49,10 +52,11 @@ class FullPlayerFragment : Fragment() {
         }
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_full_player, container, false)
     }
 
+    @androidx.media3.common.util.UnstableApi
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         image = view.findViewById(R.id.fullPlayerImage)
         title = view.findViewById(R.id.fullPlayerTitle)
@@ -62,72 +66,64 @@ class FullPlayerFragment : Fragment() {
         currentTime = view.findViewById(R.id.fullPlayerCurrentTime)
         totalTime = view.findViewById(R.id.fullPlayerTotalTime)
         likeBtn = view.findViewById(R.id.fullPlayerLikeBtn)
+        nextBtn = view.findViewById(R.id.nextBtn)
+        prevBtn = view.findViewById(R.id.prevBtn)
+        repBtn = view.findViewById(R.id.repeatBtn)
+        gradientOverlay = view.findViewById(R.id.gradientOverlay)
+
 
         val controller = PlayerManager.controller
-        val song = PlayerManager.getCurrentSong()
-
-        if (controller == null || song == null) {
+        if (controller == null) {
             Toast.makeText(requireContext(), "No song is currently playing", Toast.LENGTH_SHORT).show()
             parentFragmentManager.popBackStack()
             return
         }
 
-        controller.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                activity?.runOnUiThread {
-                    playPauseBtn.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-                    val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-                    val playPause = playerBar?.findViewById<ImageView>(R.id.playPauseBtn)
-                    playPause?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-                }
-            }
-        })
-
-        updateLikeButton(song)
-
-        likeBtn.setOnClickListener {
-            if (LikedSongsManager.isLiked(requireContext(), song)) {
-                LikedSongsManager.removeSong(requireContext(), song)
-            } else {
-                LikedSongsManager.addSong(requireContext(), song)
-            }
-            updateLikeButton(song)
-            updatePlayerBarLikeButton(song)
+        repBtn.setOnClickListener {
+            PlayerManager.isRepeatOn = !PlayerManager.isRepeatOn
+            repBtn.setImageResource(
+                if (PlayerManager.isRepeatOn) R.drawable.ic_repeat_on else R.drawable.ic_repeat_off
+            )
         }
-
-        val downloadBtn = view.findViewById<ImageView>(R.id.fullPlayerDownloadBtn)
-        downloadBtn.setOnClickListener {
-            downloadCurrentSong()
-        }
-
-        title.text = song.title
-        subtitle.text = song.subtitle
-        Glide.with(requireContext()).load(song.image).into(image)
-
-        val durationMs = controller.duration
-        val durationSec = (durationMs / 1000).toInt().coerceAtLeast(1)
-        seekBar.max = durationSec
-        totalTime.text = formatDuration(durationSec)
-
-        playPauseBtn.setImageResource(if (controller.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        setupControllerListeners()
+        refreshUI()
 
         playPauseBtn.setOnClickListener {
-            if (controller.isPlaying) {
-                controller.pause()
+            if (controller.isPlaying) controller.pause()
+            else controller.play()
+        }
+
+        nextBtn.setOnClickListener {
+            PlayerManager.playNext(requireContext())
+        }
+
+        prevBtn.setOnClickListener {
+            PlayerManager.playPrevious(requireContext())
+        }
+
+        likeBtn.setOnClickListener {
+            val currentSong = PlayerManager.getCurrentSong() ?: return@setOnClickListener
+            if (LikedSongsManager.isLiked(requireContext(), currentSong)) {
+                LikedSongsManager.removeSong(requireContext(), currentSong)
             } else {
-                controller.play()
+                LikedSongsManager.addSong(requireContext(), currentSong)
             }
+            updateLikeButton(currentSong)
+            updatePlayerBarLikeButton(currentSong)
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    controller.seekTo(progress * 1000L)
-                }
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) controller.seekTo(progress * 1000L)
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
+
+        view.findViewById<ImageView>(R.id.fullPlayerDownloadBtn)?.setOnClickListener {
+            downloadCurrentSong()
+        }
 
         handler.post(updateRunnable)
     }
@@ -137,27 +133,114 @@ class FullPlayerFragment : Fragment() {
         handler.removeCallbacks(updateRunnable)
     }
 
+    private fun refreshUI() {
+        if (!isAdded || context == null || view == null) return
+
+        val song = PlayerManager.getCurrentSong() ?: return
+        val controller = PlayerManager.controller ?: return
+
+        title.text = song.title
+        subtitle.text = song.subtitle
+
+        Glide.with(requireContext())
+            .asBitmap()
+            .load(song.image)
+            .into(object : com.bumptech.glide.request.target.BitmapImageViewTarget(image) {
+                override fun setResource(resource: android.graphics.Bitmap?) {
+                    super.setResource(resource)
+                    resource?.let {
+                        Palette.from(it).generate { palette ->
+                            val dominantColor = palette?.getDominantColor(
+                                ContextCompat.getColor(requireContext(), R.color.black)
+                            ) ?: ContextCompat.getColor(requireContext(), R.color.black)
+
+                            val gradient = GradientDrawable(
+                                GradientDrawable.Orientation.TOP_BOTTOM,
+                                intArrayOf(dominantColor, Color.TRANSPARENT)
+                            )
+                            gradientOverlay.background = gradient
+                        }
+                    }
+                }
+            })
+
+        val durationMs = controller.duration
+        val durationSec = (durationMs / 1000).toInt().coerceAtLeast(1)
+        seekBar.max = durationSec
+        totalTime.text = formatDuration(durationSec)
+
+        playPauseBtn.setImageResource(if (controller.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        updateLikeButton(song)
+        updatePlayerBar(song, controller.isPlaying)
+        updatePlayerBarLikeButton(song)
+    }
+
+
+    private fun updatePlayerBar(song: SongItem, isPlaying: Boolean) {
+        val safeContext = context ?: return
+        val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
+        val barTitle = playerBar.findViewById<TextView>(R.id.playerTitle)
+        val barSubtitle = playerBar.findViewById<TextView>(R.id.playerSubtitle)
+        val barImage = playerBar.findViewById<ImageView>(R.id.playerImage)
+        val barPlayPause = playerBar.findViewById<ImageView>(R.id.playPauseBtn)
+
+        barTitle.text = song.title
+        barSubtitle.text = song.subtitle
+        Glide.with(safeContext).load(song.image).into(barImage)
+        barPlayPause.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+    }
+
+
     private fun updateLikeButton(song: SongItem) {
-        val isLiked = LikedSongsManager.isLiked(requireContext(), song)
-        likeBtn.setImageResource(if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+        likeBtn.setImageResource(
+            if (LikedSongsManager.isLiked(requireContext(), song)) R.drawable.ic_heart_filled
+            else R.drawable.ic_heart_outline
+        )
     }
 
     private fun updatePlayerBarLikeButton(song: SongItem) {
+        val safeContext = context ?: return
         val playerBar = requireActivity().findViewById<View>(R.id.playerBar)
-        val playerLikeBtn = playerBar?.findViewById<ImageView>(R.id.playerLikeBtn)
-        playerLikeBtn?.setImageResource(
-            if (LikedSongsManager.isLiked(requireContext(), song))
+        val barLikeBtn = playerBar.findViewById<ImageView>(R.id.playerLikeBtn)
+        barLikeBtn?.setImageResource(
+            if (LikedSongsManager.isLiked(safeContext, song))
                 R.drawable.ic_heart_filled
             else
                 R.drawable.ic_heart_outline
         )
     }
 
+
     private fun formatDuration(seconds: Int): String {
         val min = seconds / 60
         val sec = seconds % 60
         return String.format("%d:%02d", min, sec)
     }
+
+    private fun setupControllerListeners() {
+        PlayerManager.controller?.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                refreshUI()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                refreshUI()
+            }
+            @androidx. media3.common. util. UnstableApi
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    val context = context ?: return
+                    if (PlayerManager.isRepeatOn) {
+                        PlayerManager.controller?.seekTo(0)
+                        PlayerManager.controller?.play()
+                    } else {
+                        PlayerManager.playNext(context)
+                    }
+                }
+            }
+        })
+    }
+
 
     private fun downloadCurrentSong() {
         val song = PlayerManager.getCurrentSong() ?: return
@@ -166,12 +249,16 @@ class FullPlayerFragment : Fragment() {
             try {
                 val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
                 if (streamUrl.isNullOrEmpty()) {
-                    showToast("Failed to fetch stream URL")
+                    withContext(Dispatchers.Main) {
+                        if (isAdded) showToast("Failed to fetch stream URL")
+                    }
                     return@launch
                 }
 
                 val input = URL(streamUrl).openStream()
-                val resolver = requireContext().contentResolver
+
+                val safeContext = context ?: return@launch
+                val resolver = safeContext.contentResolver
 
                 val fileName = "${song.title}-${System.currentTimeMillis()}.mp3"
                 val contentValues = ContentValues().apply {
@@ -186,31 +273,35 @@ class FullPlayerFragment : Fragment() {
                 val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 } else {
-                    MediaStore.Files.getContentUri("external").let {
-                        resolver.insert(it, contentValues)
-                    }
+                    resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                 }
 
-                uri?.let {
-                    resolver.openOutputStream(it)?.use { output -> input.copyTo(output) }
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { output -> input.copyTo(output) }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         contentValues.clear()
                         contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                        resolver.update(it, contentValues, null, null)
+                        resolver.update(uri, contentValues, null, null)
                     }
 
                     withContext(Dispatchers.Main) {
-                        showToast("Downloaded to Downloads/RUNNR")
+                        if (isAdded) showToast("Downloaded to Downloads/RUNNR")
                     }
-                } ?: showToast("Download failed")
-
+                } else {
+                    withContext(Dispatchers.Main) {
+                        if (isAdded) showToast("Download failed")
+                    }
+                }
             } catch (e: Exception) {
-                showToast("Download error")
                 e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (isAdded) showToast("Download error")
+                }
             }
         }
     }
+
 
     private fun showToast(msg: String) {
         Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
