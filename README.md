@@ -2,7 +2,7 @@
 - Listen to high quality songs, without ads, and unlimited download.
 - Friendly dark ui, with live searching and full screen player
 - Access to almost every song worldwide.
-- https://github.com/bhvym-sudo/RUNNR/releases/tag/x-1
+- [https://github.com/bhvym-sudo/RUNNR/releases/tag/x-1](https://github.com/bhvym-sudo/RUNNR/releases/tag/x-2)
 
 # Version x-2
 - Added liked songs feature
