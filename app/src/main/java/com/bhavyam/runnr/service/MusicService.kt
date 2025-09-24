@@ -5,17 +5,18 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.os.Build
-import androidx.media.session.MediaButtonReceiver
-import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.app.NotificationCompat
-import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.bhavyam.runnr.R
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 
-
+@UnstableApi
 class MusicService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
@@ -26,23 +27,46 @@ class MusicService : MediaSessionService() {
         private const val NOTIFICATION_ID = 101
     }
 
-    @UnstableApi
     override fun onCreate() {
         super.onCreate()
 
+        val dataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138 Safari/537.36")
+            .setDefaultRequestProperties(
+                mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138 Safari/537.36",
+                    "Referer" to "https://www.jiosaavn.com/",
+                    "Origin" to "https://www.jiosaavn.com"
+                )
+            )
 
-        player = ExoPlayer.Builder(this).build().apply {
-            playWhenReady = true
-        }
-
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build()
+            .apply { playWhenReady = true }
 
         mediaSession = MediaSession.Builder(this, player)
             .setId("RUNNR_SESSION")
+            .setCallback(CustomCallback())
             .build()
-
 
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+    }
+
+    private inner class CustomCallback : MediaSession.Callback {
+        override fun onPlaybackResumption(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            return Futures.immediateFuture(
+                MediaSession.MediaItemsWithStartPosition(
+                    emptyList(),
+                    0,
+                    0L
+                )
+            )
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -69,46 +93,16 @@ class MusicService : MediaSessionService() {
         super.onStartCommand(intent, flags, startId)
         return START_NOT_STICKY
     }
-    @androidx.media3.common.util.UnstableApi
+
     private fun buildNotification(): Notification {
-        val nextIntent = MediaButtonReceiver.buildMediaButtonPendingIntent(
-            this,
-            PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-        )
-
-        val prevIntent = MediaButtonReceiver.buildMediaButtonPendingIntent(
-            this,
-            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-        )
-
-        val nextAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_next,
-            "Next",
-            nextIntent
-        ).build()
-
-        val prevAction = NotificationCompat.Action.Builder(
-            R.drawable.ic_prev,
-            "Previous",
-            prevIntent
-        ).build()
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("RUNNR")
             .setContentText("Music is playing")
             .setSmallIcon(R.drawable.ic_music_note)
-            .setStyle(
-                MediaStyle()
-                    .setMediaSession(mediaSession?.sessionCompatToken)
-                    .setShowActionsInCompactView(0, 1)
-            )
-            .addAction(prevAction)
-            .addAction(nextAction)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
     }
-
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
