@@ -8,6 +8,7 @@
 - Added headers for playing the song
 - Fixed app crashing
 - Fixed seek bar, and play/pause button
+- Changed the colour palette adaptation, on full screen player
 
 # Version x-2
 - Added liked songs feature
