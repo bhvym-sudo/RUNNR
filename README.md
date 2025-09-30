@@ -4,6 +4,12 @@
 - Access to almost every song worldwide.
 - [https://github.com/bhvym-sudo/RUNNR/releases/tag/x-1](https://github.com/bhvym-sudo/RUNNR/releases/tag/x-2)
 
+# Version x-3
+- Added headers for playing the song
+- Fixed app crashing
+- Fixed seek bar, and play/pause button
+- Changed the colour palette adaptation, on full screen player
+
 # Version x-2
 - Added liked songs feature
 - Added navigation (next/previous) buttons
