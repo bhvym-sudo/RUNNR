@@ -4,8 +4,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -23,21 +25,47 @@ object PlayerManager {
     var isRepeatOn = false
     private var currentSong: SongItem? = null
     private val listeners = mutableListOf<PlayerStateListener>()
+    private var currentQueue: List<SongItem> = emptyList()
 
+    @OptIn(UnstableApi::class)
     fun initController(context: Context, onReady: (() -> Unit)? = null) {
         val sessionToken = SessionToken(
             context,
             ComponentName(context, MusicService::class.java)
         )
+
         val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture.addListener({
             controller = controllerFuture.get()
+            controller?.addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    super.onMediaItemTransition(mediaItem, reason)
+                    updateCurrentSongFromQueue()
+                    notifyListeners(controller?.isPlaying == true)
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    super.onIsPlayingChanged(isPlaying)
+                    notifyListeners(isPlaying)
+                }
+            })
             onReady?.invoke()
         }, ContextCompat.getMainExecutor(context))
     }
 
+    private fun updateCurrentSongFromQueue() {
+        controller?.let { ctrl ->
+            val currentIndex = ctrl.currentMediaItemIndex
+            if (currentIndex >= 0 && currentIndex < currentQueue.size) {
+                currentSong = currentQueue[currentIndex]
+                PlaybackQueueManager.setCurrentIndex(currentIndex)
+            }
+        }
+    }
+
     fun setCurrentSong(song: SongItem) {
         currentSong = song
+        notifyListeners(isPlaying())
     }
 
     fun addListener(listener: PlayerStateListener) {
@@ -54,19 +82,18 @@ object PlayerManager {
 
     @UnstableApi
     fun playStream(context: Context, song: SongItem) {
+        setCurrentSong(song)
         CoroutineScope(Dispatchers.Main).launch {
             val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
             if (!streamUrl.isNullOrEmpty()) {
                 val intent = Intent(context, MusicService::class.java)
                 context.startForegroundService(intent)
-
                 controller?.let { ctrl ->
                     val mediaItem = MediaItem.fromUri(streamUrl)
                     ctrl.setMediaItem(mediaItem)
                     ctrl.prepare()
                     ctrl.play()
                     notifyListeners(true)
-                    setCurrentSong(song)
                 } ?: run {
                     initController(context) {
                         playStream(context, song)
@@ -82,24 +109,64 @@ object PlayerManager {
 
     @UnstableApi
     fun playSongWithQueue(context: Context, songList: List<SongItem>, songIndex: Int) {
+        currentQueue = songList
         PlaybackQueueManager.setQueue(songList, songIndex)
-        val song = songList[songIndex]
-        setCurrentSong(song)
-        playStream(context, song)
+        setCurrentSong(songList[songIndex])
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val mediaItems = mutableListOf<MediaItem>()
+
+            for (song in songList) {
+                val streamUrl = getStreamUrl(song.encrypted_media_url, song.title)
+                if (!streamUrl.isNullOrEmpty()) {
+                    mediaItems.add(MediaItem.fromUri(streamUrl))
+                }
+            }
+
+            if (mediaItems.isNotEmpty()) {
+                val intent = Intent(context, MusicService::class.java)
+                context.startForegroundService(intent)
+
+                controller?.let { ctrl ->
+                    ctrl.setMediaItems(mediaItems, songIndex, 0)
+                    ctrl.prepare()
+                    ctrl.play()
+                    notifyListeners(true)
+                } ?: run {
+                    initController(context) {
+                        playSongWithQueue(context, songList, songIndex)
+                    }
+                }
+            } else {
+                Toast.makeText(context, "Unable to load songs", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     @UnstableApi
     fun playNext(context: Context) {
-        val nextSong = PlaybackQueueManager.getNextSong() ?: return
-        setCurrentSong(nextSong)
-        playStream(context, nextSong)
+        controller?.let { ctrl ->
+            if (ctrl.hasNextMediaItem()) {
+                ctrl.seekToNextMediaItem()
+            } else {
+                val nextSong = PlaybackQueueManager.getNextSong() ?: return
+                setCurrentSong(nextSong)
+                playStream(context, nextSong)
+            }
+        }
     }
 
     @UnstableApi
     fun playPrevious(context: Context) {
-        val previousSong = PlaybackQueueManager.getPreviousSong() ?: return
-        setCurrentSong(previousSong)
-        playStream(context, previousSong)
+        controller?.let { ctrl ->
+            if (ctrl.hasPreviousMediaItem()) {
+                ctrl.seekToPreviousMediaItem()
+            } else {
+                val previousSong = PlaybackQueueManager.getPreviousSong() ?: return
+                setCurrentSong(previousSong)
+                playStream(context, previousSong)
+            }
+        }
     }
 
     fun pause() {

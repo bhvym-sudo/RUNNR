@@ -11,15 +11,46 @@ object PlaybackQueueManager {
         currentIndex = startIndex
     }
 
+    fun setCurrentIndex(index: Int) {
+        currentIndex = index
+    }
+
+    fun getCurrentIndex(): Int {
+        return currentIndex
+    }
+
     fun getCurrentSong(): SongItem? {
         return if (currentIndex in songList.indices) songList[currentIndex] else null
     }
 
     fun getNextSong(): SongItem? {
-        return if (currentIndex + 1 < songList.size) songList[++currentIndex] else null
+        return if (currentIndex + 1 < songList.size) {
+            currentIndex++
+            songList[currentIndex]
+        } else null
     }
 
     fun getPreviousSong(): SongItem? {
-        return if (currentIndex - 1 >= 0) songList[--currentIndex] else null
+        return if (currentIndex - 1 >= 0) {
+            currentIndex--
+            songList[currentIndex]
+        } else null
+    }
+
+    fun hasNextSong(): Boolean {
+        return currentIndex + 1 < songList.size
+    }
+
+    fun hasPreviousSong(): Boolean {
+        return currentIndex - 1 >= 0
+    }
+
+    fun getQueueSize(): Int {
+        return songList.size
+    }
+
+    fun clearQueue() {
+        songList = emptyList()
+        currentIndex = -1
     }
 }
